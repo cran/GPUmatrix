@@ -1,7 +1,7 @@
 Package: GPUmatrix
 Type: Package
 Title: Basic Linear Algebra with GPU
-Version: 0.1.0
+Version: 0.1.1
 Authors@R: c(person("Cesar", "Lobato-Fernandez", email = "clobatofern@unav.es",role = c("aut", "cre")),
               person("Juan", "A.Ferrer-Bonsoms", role = "aut"),
               person("Angel", "Rubio", email = "arubio@tecnun.es",role = c("aut","ctb")))
@@ -15,10 +15,10 @@ License: Artistic-2.0
 RoxygenNote: 7.2.1
 Encoding: UTF-8
 NeedsCompilation: no
-Packaged: 2023-04-20 07:24:53 UTC; clobatofern
+Packaged: 2023-10-16 12:54:26 UTC; clobatofern
 Author: Cesar Lobato-Fernandez [aut, cre],
   Juan A.Ferrer-Bonsoms [aut],
   Angel Rubio [aut, ctb]
 Maintainer: Cesar Lobato-Fernandez <clobatofern@unav.es>
 Repository: CRAN
-Date/Publication: 2023-04-20 16:52:38 UTC
+Date/Publication: 2023-10-16 18:30:07 UTC
