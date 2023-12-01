@@ -7,22 +7,68 @@ updateW <- function(V,W,H) {
   W <- W * (V %*% t(H))/(W %*% (H %*% t(H)) )
 }
 
+setNegativeZero <- function(x){
+  if(min(x) < 0){
+    if(class(x)[[1]] == "gpu.matrix.torch"){
+      x@gm <- torch::torch_clamp(x@gm, min=0)
+    }else if(class(x)[[1]] == "gpu.matrix.tensorflow"){
+      x@gm <- tensorflow::tf$maximum(x@gm, 0)
+    }else{
+      x[(x < 0)] <- 0
+    }
+    warning(message="The values of Hinit must be positive. Negative values in Hinit are set to 0.")
+  }
+
+
+  return(x)
+}
+controlDimensionNMF <- function(Winit=NULL, Hinit=NULL,V,k){
+  if(!((nrow(Winit) == nrow(V)) & (ncol(Winit) == k))){
+    stop("The dimensions of the Winit matrix are incorrect.
+               Please check that nrow(Winit) == nrow(V) and that ncol(Winit) == k.")
+  }
+  if(!((nrow(Hinit) == k) & (ncol(Hinit) == ncol(V)))){
+    stop("The dimensions of the Hinit matrix are incorrect.
+               Please check that nrow(Hinit) == k and that ncol(Hinit) == ncol(V).")
+  }
+}
 NMFgpumatrix <- function(V,k=10,Winit=NULL, Hinit=NULL, tol=1e-6, niter=100){
   set.seed(123)
+  objectClass <- class(V)[[1]]
   objectPackage <- attr(class(V),"package")
-
   if(!is.null(objectPackage)){
-    if(objectPackage == "GPUmatrix"){
-      if(is.null(Winit)) Winit <- gpu.matrix(runif(nrow(V)*k),nrow(V),k, dtype = dtype(V),type = typeGPUmatrix(V),device = device(V))
-      if(is.null(Hinit)) Hinit <- gpu.matrix(runif(k*ncol(V)),k,ncol(V), dtype = dtype(V),type = typeGPUmatrix(V),device = device(V))
+    if(objectClass == "gpu.matrix.torch" | objectClass == "gpu.matrix.tensorflow"){
+      if(is.null(Winit)){
+        Winit <- gpu.matrix(runif(nrow(V)*k),nrow(V),k, dtype = dtype(V),type = typeGPUmatrix(V),device = device(V))
+      }
+      if(is.null(Hinit)){
+        Hinit <- gpu.matrix(runif(k*ncol(V)),k,ncol(V), dtype = dtype(V),type = typeGPUmatrix(V),device = device(V))
+      }
     }else{
-      if(is.null(Winit)) Winit <- matrix(runif(nrow(V)*k),nrow(V),k)
-      if(is.null(Hinit)) Hinit <- matrix(runif(k*ncol(V)),k,ncol(V))
+      if(is.null(Winit)){
+        Winit <- matrix(runif(nrow(V)*k),nrow(V),k)
+      }
+      if(is.null(Hinit)){
+        Hinit <- matrix(runif(k*ncol(V)),k,ncol(V))
+      }
     }
   }else{
-    if(is.null(Winit)) Winit <- matrix(runif(nrow(V)*k),nrow(V),k)
-    if(is.null(Hinit)) Hinit <- matrix(runif(k*ncol(V)),k,ncol(V))
+    if(is.null(Winit)){
+      Winit <- matrix(runif(nrow(V)*k),nrow(V),k)
+    }
+    if(is.null(Hinit)){
+      Hinit <- matrix(runif(k*ncol(V)),k,ncol(V))
+    }
   }
+
+
+  Winit <- setNegativeZero(Winit)
+  Hinit <- setNegativeZero(Hinit)
+  controlDimensionNMF(Winit, Hinit,V,k)
+  V <- setNegativeZero(V)
+
+
+
 
   Vold <- V
   condition <- F
@@ -32,16 +78,22 @@ NMFgpumatrix <- function(V,k=10,Winit=NULL, Hinit=NULL, tol=1e-6, niter=100){
     Vnew <- Winit%*%Hinit
     if(mean((Vnew-Vold)^2)<tol){
       res <- list("W"=Winit,"H"=Hinit)
-      condition <- T
+      warning(message="Early finish")
+      return(res)
       break()
     }
     Vold <- Vnew
+    if(iter == niter){
+      res <- list("W"=Winit,"H"=Hinit)
+      return(res)
+    }
   }
 
-  if(!condition){
-    warning(message="Early finish")
-  }
-  return(res)
+  # if(!condition){
+  #
+  #   warning(message="Early finish")
+  # }
+  # return(res)
 }
 
 
@@ -117,7 +169,7 @@ glm.fit.GPU <- function (x,y, intercept = TRUE, weights = NULL,
                          offset = NULL, acc = 1e-08, maxit = 25, k = 2,
                          sparse = NULL,
                          trace = FALSE,
-                         dtype=NULL,
+                         dtype="float64",
                          device=NULL,
                          type=NULL,...)
 {
@@ -241,13 +293,15 @@ glm.fit.GPU <- function (x,y, intercept = TRUE, weights = NULL,
     else paste("V", 1:length(coefficients), sep = "")
   }
   else col.names
+  if ((fam == "gaussian") & (link == "identity"))
+    tol <- 0
   rval <- list(coefficients = coefficients, logLik = ll.nuovo,
                iter = iter, tol = tol, family = family, link = link,
                df = dfr, XTX = as.matrix(XTX), dispersion = dispersion, ok = ok,
                rank = rank, RSS = as.numeric(RSS), method = method, aic = aic.model,
                offset = offset, sparse = sparse, deviance = dev, nulldf = nulldf,
                nulldev = nulldev, ngoodobs = n.ok, n = nobs, intercept = intercept,
-               convergence = (!(tol > acc)))
+               convergence = (!(tol > acc)),converged = (!(tol > acc)))
 
   class(rval) <- "GPUglm"
   return(rval)

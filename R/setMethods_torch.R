@@ -80,12 +80,57 @@ setMethod("det", signature(x = "gpu.matrix.torch"), function(x, ...){
 
 setMethod("fft", signature(z="gpu.matrix.torch", inverse="missing"), function(z,inverse=F){
   z <- warningSparseTensor_torch(z)
+  if(!(ncol(z)>1 & nrow(z)>1)){
+    if(ncol(z)>1){
+      z@gm <- torch::torch_fft_fft(z@gm,dim = 2)
+    }else{
+      z@gm <- torch::torch_fft_fft(z@gm,dim = 1)
+    }
+  }else{
+    stop("FFT in gpu.matrix with 2 dimensions is not allowed yet")
+  }
+
+  return(z)
+})
+
+
+setMethod("fft", signature(z="gpu.matrix.torch", inverse="logical"), function(z,inverse=F){
+  z <- warningSparseTensor_torch(z)
+
+  if(!(ncol(z)>1 & nrow(z)>1)){
+    if(ncol(z)>1){
+      if(inverse){
+        z@gm <- torch::torch_fft_ifft(z@gm, norm = "forward",dim = 2)
+      }else{
+        z@gm <- torch::torch_fft_fft(z@gm,dim = 2)
+      }
+    }else{
+      if(inverse){
+        z@gm <- torch::torch_fft_ifft(z@gm, norm = "forward",dim = 1)
+      }else{
+        z@gm <- torch::torch_fft_fft(z@gm,dim = 1)
+      }
+    }
+  }else{
+    stop("FFT in gpu.matrix with 2 dimensions is not allowed yet")
+  }
+
+  # if(inverse){
+  #   z@gm <- torch::torch_fft_ifft(z@gm, norm = "forward",dim = 1)
+  # }else{
+  #   z@gm <- torch::torch_fft_fft(z@gm,dim = 1)
+  # }
+  return(z)
+})
+
+setMethod("mvfft", signature(z="gpu.matrix.torch", inverse="missing"), function(z,inverse=F){
+  z <- warningSparseTensor_torch(z)
   z@gm <- torch::torch_fft_fft(z@gm,dim = 1)
 
   return(z)
 })
 
-setMethod("fft", signature(z="gpu.matrix.torch", inverse="logical"), function(z,inverse=F){
+setMethod("mvfft", signature(z="gpu.matrix.torch", inverse="logical"), function(z,inverse=F){
   z <- warningSparseTensor_torch(z)
   if(inverse){
     z@gm <- torch::torch_fft_ifft(z@gm, norm = "forward",dim = 1)
@@ -492,6 +537,7 @@ setMethod("%^%", signature(x = "gpu.matrix.torch", k = "numeric"), function(x,k)
 setGeneric("expmGPU", function(x) standardGeneric("expmGPU"))
 setMethod("expmGPU", signature(x = "gpu.matrix.torch"), function(x){
   x <- warningSparseTensor_torch(x)
+  x <- warningInteger(x)
   x@gm <- torch::torch_matrix_exp(x@gm)
   # message("The exponential is computed using a combination of the scaling and squaring method and the Pade approximation.SIAM J. Matrix Anal. Applic., 26:1179-1193, 2005")
   return(x)
@@ -1214,3 +1260,16 @@ setMethod("rowMins", signature(x = "gpu.matrix.torch"), function(x){
   return(res)
 })
 
+setMethod("dist", signature(x = "gpu.matrix.torch"), function(x,method = "euclidean", diag = FALSE, upper = FALSE, p = 2){
+  if (!is.na(pmatch(method, "euclidian")))
+    method <- "euclidean"
+  METHODS <- c("euclidean", "maximum", "manhattan", "minkowski")
+  method <- pmatch(method, METHODS)
+  p <- (method == 1)*2 + (method==3)*1+(method==4)*p
+  if(method==2) p <- Inf
+  if (is.na(method))
+    stop("invalid distance method")
+
+  output <- torch::torch_cdist(x@gm, x@gm,p)
+  return(gpu.matrix(output, device = device(x)))
+})

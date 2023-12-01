@@ -9,7 +9,7 @@ These functions mimic the functions \code{speedglm} and \code{speedglm.wfit} of 
 glm.fit.GPU(x, y, intercept = TRUE, weights = NULL, family =
                    gaussian(), start = NULL, etastart = NULL, mustart =
                    NULL, offset = NULL, acc = 1e-08, maxit = 25, k = 2,
-                   sparse = NULL, trace = FALSE, dtype = NULL, device =
+                   sparse = NULL, trace = FALSE, dtype = "float64", device =
                    NULL, type = NULL, ...)
 
 GPUglm(...)
@@ -52,9 +52,9 @@ The common parameters with \code{speedglm}:
 
 The \code{glm.fit.GPU} function internally initialises matrices of the 'GPUmatrix' class by calling the \code{\link[GPUmatrix]{gpu.matrix}} function. The following parameters correspond to this function:
 
-\item{dtype}{parameter of the function \code{gpu.matrix}: "data type. User can indicate "float64", "float32" or "int" for "int64". if not specified, dtype will correspond to the input data type." }
+\item{dtype}{parameter of the function \code{gpu.matrix}: "data type. User can indicate "float64", "float32" or "int" for "int64"." By default it is set to 'float64'.}
 
-\item{device}{parameter of the function \code{gpu.matrix}:"Only for \code{type = "torch"}. It indicates de devide to load cuda. If not indicated, 'device' will be set to 'cuda' if \code{torch::cuda_is_available()}"}
+\item{device}{parameter of the function \code{gpu.matrix}:"It indicates the device to load cuda. If not indicated, 'device' will be set to 'cuda' if it is available."}
 
 \item{type}{parameter of the function \code{gpu.matrix}: "If gpu.matrix is 'torch' (by default if type is NULL) or "tensorflow"."}
 
@@ -105,31 +105,78 @@ Both \code{glmGPU}, and \code{glm.fit.GPU} returns an object of class "GPUglm". 
 }
 \seealso{
 See also: \code{\link[speedglm]{speedglm}} and \code{\link[stats]{glm}}.
+
+Also of interest may be the function \code{\link{LR_GradientConjugate_gpumatrix}} for logistic regression.
+
 }
 \examples{
 
 \donttest{
 \dontrun{
-# These examples show that the way to call
-# and work with these functions is the same
-# as with the corresponding functions
-# of the `speedglm' library.
+require(MASS,quietly = TRUE)
+require(stats,quietly = TRUE)
 
-# linear model:
-x <- matrix(rnorm(100*50),nrow = 100)
-y <- x %*% rnorm(50) + rnorm(100)
-s1 <- glm.fit.GPU(x=Matrix(x),y=as.gpu.matrix(y))
+# linear model (example taken from 'glm'):
 
-#poisson and binomial:
+utils::data(anorexia, package = "MASS")
+anorex_glm <- glm(Postwt ~ Prewt + Treat + offset(Prewt),
+                  family = gaussian(), data = anorexia)
+summary(anorex_glm)
 
-m <- 1000
-n <- 100
-x <- matrix(runif(m*n),m,n)
-sol <- rnorm(n)
-y <- rbinom(m, 1, prob = plogis(x%*%sol))
-s1 <- glm.fit.GPU(x,y,family = binomial(),dtype="float32")
-s2 <- glm.fit.GPU(x,y,family = poisson(),dtype="float64", device = "cpu")
+#Using GPUglm:
+anorex_GPUglm <- GPUglm(Postwt ~ Prewt + Treat + offset(Prewt),
+                        family = gaussian, data = anorexia)
+summary(anorex_GPUglm)
 
+#linear model using glm.fit.gpu
+x <- model.matrix(~Treat+Prewt,data=anorexia)
+y <- as.matrix(anorexia$Postwt)
+s1_glm <- glm.fit(x=x,y=y)
+s1_gpu <- glm.fit.GPU(x=x,y=y)
+
+s1_glm$coefficients
+s1_gpu$coefficients
+
+
+# poisson (example taken from 'glm'):
+counts <- c(18,17,15,20,10,20,25,13,12)
+outcome <- gl(3,1,9)
+treatment <- gl(3,3)
+glm.D93 <- glm(counts ~ outcome + treatment, family = poisson())
+summary(glm.D93)
+
+gpu.glm.D93 <- GPUglm(counts ~ outcome + treatment, family = poisson())
+summary(gpu.glm.D93)
+
+#logistic:
+data(menarche)
+glm.out <- glm(cbind(Menarche, Total-Menarche) ~ Age, family=binomial(), data=menarche)
+summary(glm.out)
+
+glm.out_gpu <- GPUglm(cbind(Menarche, Total-Menarche) ~ Age, family=binomial(), data=menarche)
+summary(glm.out_gpu)
+
+#can be also called using glm.fit.gpu:
+new_menarche <- data.frame(Age=rep(menarche$Age,menarche$Total))
+observations <- c()
+for(i in 1:nrow(menarche)){
+  observations <- c(observations,rep(c(0,1),c(menarche$Total[i]-menarche$Menarche[i],
+                                              menarche$Menarche[i])))
+}
+new_menarche$observations <- observations
+x <- model.matrix(~Age,data=new_menarche)
+head(new_menarche)
+glm.fit_gpu <- glm.fit.GPU(x=x,y=new_menarche$observations, family=binomial())
+summary(glm.fit_gpu)
+
+#GPUmatrix package also include the function 'LR_GradientConjugate_gpumatrix'
+lr_gran_sol <- LR_GradientConjugate_gpumatrix(X = x,y = observations)
+
+#check results
+glm.out$coefficients
+glm.out_gpu$coefficients
+glm.fit_gpu$coefficients
+lr_gran_sol
 }
 }
 

@@ -40,6 +40,7 @@ exportMethods("as.matrix",
               "hist",
               "det",
               "fft",
+              "mvfft",
               "ginv",
               "length",
               "dim",
@@ -87,7 +88,8 @@ exportMethods("as.matrix",
               "cov",
               "cov2cor",
               "cor",
-              "apply")
+              "apply",
+              "dist")
 
 
 
