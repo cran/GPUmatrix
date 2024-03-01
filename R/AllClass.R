@@ -1,29 +1,26 @@
-# library(tensorflow)
-# install_tensorflow(gpu = TRUE)
-# use_condaenv("tf")
-# tfp <- import("tensorflow_probability")
-# library(torch)
 
+# Define a class for a GPU matrix using TensorFlow
 setClass("gpu.matrix.tensorflow",
          representation(
            # data="vector",
            rownames = "ANY",
            colnames = "ANY",
            gm = "ANY",
-           sparse = "logical",
+           sparse = "ANY",
            type="character")
 )
+# Define a class for a GPU matrix using PyTorch
 setClass("gpu.matrix.torch",
          representation(
            # data="vector",
            rownames = "ANY",
            colnames = "ANY",
            gm = "ANY",
-           sparse = "logical",
+           sparse = "ANY",
            type="character")
 )
 
-
+# Function to cast data type for PyTorch
 castDtype_torch <- function(type,data=NULL) {
   if(requireNamespace('torch')){
     switch(type,
@@ -85,7 +82,7 @@ castDtype_torch <- function(type,data=NULL) {
   }
   return(res)
 }
-
+# Function to cast data type for TensorFlow
 castDtype_tensorflow <- function(type,data=NULL) {
   switch(type,
          "float32" = {
@@ -150,6 +147,7 @@ castDtype_tensorflow <- function(type,data=NULL) {
   return(res)
 }
 
+# Function to cast a Matrix to a PyTorch sparse tensor
 dMatrixCast_torch <- function(data,device_torch){
   i <- data@i + 1
   j <- findInterval(seq(data@x)-1,data@p[-1]) + 1
@@ -159,7 +157,7 @@ dMatrixCast_torch <- function(data,device_torch){
   if (!gm$is_cuda & device_torch=="cuda")  gm <- gm$cuda()
   return(gm)
 }
-
+# Function to cast a Matrix to a TensorFlow sparse tensor
 dMatrixCast_tensorflow <- function(data){
   i <- data@i
   j <- findInterval(seq(data@x)-1,data@p[-1])
@@ -168,7 +166,7 @@ dMatrixCast_tensorflow <- function(data){
   gm <- tensorflow::tf$sparse$reorder(gm)
   return(gm)
 }
-
+# Function to control dimensions of a tensor for PyTorch
 dimControl_torch <- function(gm,nrow,ncol){
   if (!is.null(nrow) & !is.null(ncol)) gm$resize_(c(nrow, ncol))
   if (!is.null(nrow)) gm$resize_(c(nrow,ncol(gm)))
@@ -176,13 +174,15 @@ dimControl_torch <- function(gm,nrow,ncol){
 
   return(gm)
 }
-
+# Function to control dimensions of a tensor for TensorFlow
 dimControl_tensorflow <- function(gm,nrow,ncol){
   if (!is.null(nrow) & !is.null(ncol)) gm <- tensorflow::tf$reshape(gm, as.integer(c(nrow,ncol)))
   if (!is.null(nrow)) gm <- tensorflow::tf$reshape(gm, as.integer(c(nrow,ncol(gm))))
   if (!is.null(ncol)) gm <- tensorflow::tf$reshape(gm, as.integer(c(nrow(gm),ncol)))
   return(gm)
 }
+
+# Main function to create a GPU matrix using PyTorch
 gpu.matrix.torch <- function(data = NULL, nrow = NULL, ncol = NULL, byrow = FALSE,
                                   dimnames = NULL, dtype=NULL, sparse=NULL, colnames=c(), rownames=c(),device=NULL){
   if (byrow) ncol=length(data)/nrow
@@ -205,6 +205,7 @@ gpu.matrix.torch <- function(data = NULL, nrow = NULL, ncol = NULL, byrow = FALS
     if(torch::cuda_is_available()){
       device <- "cuda"
     }else{
+      # warning("Your Torch installation does not have CUDA tensors available. Please check the Torch requirements and installation if you want to use CUDA tensors.")
       device <- "cpu"
     }
   }
@@ -289,16 +290,18 @@ gpu.matrix.torch <- function(data = NULL, nrow = NULL, ncol = NULL, byrow = FALS
   )
 
 
+  res <- new("gpu.matrix.torch", gm=gm, sparse=sparse, type="torch")
 
   #sparse Control
   if (!is.null(sparse)) {
-    if(gm$is_sparse()!=sparse & sparse==T) gm <- gm$to_sparse()
-    if(gm$is_sparse()!=sparse & sparse==F) gm <- gm$to_dense()
+    if(res@gm$is_sparse()!=sparse & sparse==T) res <- to_sparse_torch(res)
+    if(res@gm$is_sparse()!=sparse & sparse==F) res@gm <- res@gm$to_dense()
   }else{
-    sparse <- gm$is_sparse()
+    sparse <- res@gm$is_sparse()
+    res@sparse <- sparse
   }
 
-  res <- new("gpu.matrix.torch", gm=gm, sparse=sparse, type="torch")
+  # res <- new("gpu.matrix.torch", gm=gm, sparse=sparse, type="torch")
 
   #dimnames Control
   if (!is.null(dimnames)){
@@ -317,7 +320,7 @@ gpu.matrix.torch <- function(data = NULL, nrow = NULL, ncol = NULL, byrow = FALS
 
   return(res)
 }
-
+# Main function to create a GPU matrix using TensorFlow
 gpu.matrix.tensorflow <- function(data = NA, nrow = NULL, ncol = NULL, byrow = FALSE,
                                   dimnames = NULL, dtype=NULL, sparse=NULL, colnames=c(), rownames=c()){
 
@@ -462,11 +465,11 @@ gpu.matrix.tensorflow <- function(data = NA, nrow = NULL, ncol = NULL, byrow = F
   return(res)
 }
 
-
+# Main function to create a GPU matrix using either PyTorch or TensorFlow
 #' @export
 gpu.matrix <- function(data = NULL, nrow = NULL, ncol = NULL, byrow = FALSE,
                        dimnames = NULL, dtype=NULL, sparse=NULL, colnames=c(), rownames=c(),device=NULL, type=NULL) {
-  if (is.null(type)) type <- "torch"
+  if (is.null(type)) type <- getOption("typeTensor")
   if (type=="tensorflow") {
 
     res <- gpu.matrix.tensorflow(data , nrow , ncol , byrow ,
@@ -481,9 +484,5 @@ gpu.matrix <- function(data = NULL, nrow = NULL, ncol = NULL, byrow = FALSE,
   return(res)
 }
 
-# source("./R/ArithMethods.R")
-# source("./R/CompareMethods.R")
-# source("./R/IndexingGPUMatrix.R")
-# source("./R/setAsMethods.R")
-# source("./R/setMethods.R")
+
 

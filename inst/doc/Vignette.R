@@ -16,7 +16,7 @@
 
 ## ----eval=T-------------------------------------------------------------------
 library(GPUmatrix)
-if (installTorch) {
+if (installTorch()) {
   #R matrix initialization
   m <- matrix(c(1:20)+40,10,2)
   #Show CPU matrix
@@ -28,7 +28,7 @@ if (installTorch) {
 }
 
 ## ----eval=T-------------------------------------------------------------------
-if (installTorch) {
+if (installTorch()) {
 Gm[c(2,3),1]
 
 Gm[,2]
@@ -41,7 +41,7 @@ Gm2
 }
 
 ## ----eval=T-------------------------------------------------------------------
-if (installTorch) {
+if (installTorch()) {
 Gm3 <- gpu.matrix(nrow = 2,ncol=3)
 Gm3[,2]
 Gm3[1,2] <- 1 
@@ -51,7 +51,7 @@ Gm3
 }
 
 ## ----eval=T-------------------------------------------------------------------
-if (installTorch) {
+if (installTorch()) {
 #GPUmatrix initialization with CPU option   
 Gm <- gpu.matrix(c(1:20)+40,10,2,device="cpu")   
 #Show CPU matrix from GPUmatrix   
@@ -66,14 +66,14 @@ Gm
 knitr::kable(NULL,caption = "Table 1. Cast options from other packages. If back cast is TRUE, then it is possible to convert a gpu.matrix to this object and vice versa. If is FALSE, it is possible to convert these objects to gpu.matrix but not vice versa.")
 
 ## ----eval=T-------------------------------------------------------------------
-if (installTorch) {
+if (installTorch()) {
 m <- matrix(c(1:10)+40,5,2)
 Gm <- gpu.matrix(m)
 Gm
 }
 
 ## ----eval=T-------------------------------------------------------------------
-if (installTorch) {
+if (installTorch()) {
 library(Matrix)
 M <- Matrix(c(1:10)+40,5,2)
 Gm <- gpu.matrix(M)
@@ -81,7 +81,7 @@ Gm
 }
 
 ## ----eval=T-------------------------------------------------------------------
-if (installTorch) {
+if (installTorch()) {
 library(float)
 mfloat32 <- fl(m)
 Gm <- gpu.matrix(mfloat32)
@@ -89,7 +89,7 @@ Gm
 }
 
 ## ----eval=T-------------------------------------------------------------------
-if (installTorch) {
+if (installTorch()) {
 Ms <- Matrix(sample(0:1, 10, replace = TRUE), nrow=5, ncol=2, sparse=TRUE)
 Ms
  
@@ -98,7 +98,7 @@ Gms
 }
 
 ## ----eval=T-------------------------------------------------------------------
-if (installTorch) {
+if (installTorch()) {
 #Creating a float32 matrix
 Gm32 <- gpu.matrix(c(1:20)+40,10,2, dtype = "float32")
 Gm32
@@ -120,7 +120,7 @@ Gms64
 
 
 ## ----eval=T-------------------------------------------------------------------
-if (installTorch) {
+if (installTorch()) {
 (Gm + Gm) == (m + m)
 
 (Gm + M) == (mfloat32 + Gm)
@@ -137,7 +137,7 @@ knitr::kable(NULL,caption = "Table 2. Mathematical operators that accept a gpu.m
 knitr::kable(NULL,caption = "Table 3. Complex operators that accept a gpu.matrix with complex type data as input")
 
 ## ----eval=T-------------------------------------------------------------------
-if (installTorch) {
+if (installTorch()) {
 m <- matrix(c(1:20)+40,10,2)
 Gm <- gpu.matrix(c(1:20)+40,10,2)
 
@@ -157,7 +157,7 @@ knitr::kable(NULL,caption = "Table 4. Functions that accept one or several gpu.m
 
 ## ----message=FALSE, warning=FALSE---------------------------------------------
 # Standard glm
-if (installTorch) {
+if (installTorch()) {
 counts <- c(18,17,15,20,10,20,25,13,12)
 outcome <- gl(3,1,9)
 treatment <- gl(3,3)
